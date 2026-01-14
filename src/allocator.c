@@ -55,6 +55,25 @@ static block_t *request_memory(size_t size){
     return block;
 }
 
+static void split_block(block_t *block,size_t size)
+{
+    size=ALIGN(size);
+
+    //Check if we can spilt 
+    if(block->meta.size>=size+BLOCK_SIZE+ALIGNMENT){
+            block_t *new_block=(block_t *)(
+        (char *)block+BLOCK_SIZE+size
+        );
+    
+    new_block->meta.size=block->meta.size-size-BLOCK_SIZE;
+    new_block->meta.free=1;
+    new_block->meta.next=block->meta.next;
+
+    block->meta.size=size;
+    block->meta.next=new_block;
+    }
+}
+
 //-------------------malloc Implementation-------------------------
 
 void *my_malloc(size_t size){
@@ -82,6 +101,7 @@ void *my_malloc(size_t size){
 
             last->meta.next=block;
         }else{
+            split_block(block,size);
             block->meta.free=0;
         }
     }
