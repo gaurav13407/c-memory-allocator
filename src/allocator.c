@@ -1,18 +1,27 @@
+#include "allocator.h"
 #include <unistd.h>
 #include <stddef.h>
-
+#include <stdalign.h>
 
 // Block MetaData
  
 typedef struct block{
+    struct{
     size_t size;
     int free;
     struct block *next;
+    } meta;
+
+    max_align_t _align;
 } block_t;
 
-#define BLOCK_SIZE sizeof(block_t)
-
 static block_t *head_heap=NULL;
+#define ALIGNMENT ALLOCATOR_ALIGNMENT
+#define ALIGN(size)\
+    (((size)+(ALIGNMENT-1))& ~(ALIGNMENT-1))
+
+
+#define BLOCK_SIZE ALIGN(sizeof(block_t))
 
 //---------------Find Free Block-------------------- 
  
@@ -20,10 +29,10 @@ static block_t *find_free_block(size_t size){
     block_t *current=head_heap;
 
     while(current){
-        if(current->free && current->size>=size){
+        if(current->meta.free && current->meta.size>=size){
             return current;
         }
-        current=current->next;
+        current=current->meta.next;
     }
     return NULL;
 }
@@ -39,9 +48,9 @@ static block_t *request_memory(size_t size){
     }
 
     block_t *block=(block_t *)request;
-    block->size=size;
-    block->free=0;
-    block->next=NULL;
+    block->meta.size=size;
+    block->meta.free=0;
+    block->meta.next=NULL;
 
     return block;
 }
@@ -52,6 +61,7 @@ void *my_malloc(size_t size){
     if (size==0){
         return NULL;
     }
+    size=ALIGN(size);
 
     block_t *block;
     if(!head_heap){
@@ -63,16 +73,16 @@ void *my_malloc(size_t size){
         block=find_free_block(size);
         if(!block){
             block_t *last=head_heap;
-            while(last->next){
-                last=last->next;
+            while(last->meta.next){
+                last=last->meta.next;
             }
             block=request_memory(size);
             if(!block)
                 return NULL;
 
-            last->next=block;
+            last->meta.next=block;
         }else{
-            block->free=0;
+            block->meta.free=0;
         }
     }
 
@@ -85,5 +95,5 @@ void my_free(void *ptr){
     if(!ptr)
         return;
     block_t *block=(block_t *)ptr-1;
-    block->free=1;
+    block->meta.free=1;
 }

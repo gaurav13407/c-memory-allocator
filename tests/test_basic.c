@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include "allocator.h"
 
 int main(){
@@ -26,6 +27,10 @@ int main(){
     printf("%s\n",msg);
 
     my_free(msg);
+
+    void *p=my_malloc(sizeof(long double));
+    printf("addr=%p,aligned=%ld\n",
+            p,((uintptr_t)p%ALLOCATOR_ALIGNMENT));
 
     printf("ALL basic test passes\n");
     return 0;
