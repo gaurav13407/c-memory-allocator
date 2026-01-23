@@ -55,6 +55,37 @@ int main(void)
     my_free(f);
     my_free(g);
 
+
+     
+    printf("Test 5: backward + forward coalescing\n");
+
+    void *x = my_malloc(128);
+    void *y = my_malloc(256);
+    void *z = my_malloc(128);
+
+    assert(x && y && z);
+
+    /*
+        Heap layout:
+        [ x ][ y ][ z ]
+    */
+
+    my_free(y);   // free middle
+    my_free(x);   // backward coalesce should merge x + y
+    my_free(z);   // forward coalesce completes merge
+
+    /*
+        Expected:
+        [ one large free block ]
+    */
+
+    void *big = my_malloc(128 + 256 + 128);
+    assert(big == x);   // MUST reuse from start
+
+    my_free(big);
+
+    printf("Backward coalescing test passed\n");
+
     printf("ALL basic tests passed\n");
     return 0;
 }
