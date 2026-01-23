@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stddef.h>
 #include <stdalign.h>
+#include <string.h>
 
 /* =======================
    Block Metadata
@@ -25,7 +26,7 @@ static block_t *head_heap = NULL;
 
 #define ALIGNMENT ALLOCATOR_ALIGNMENT
 #define ALIGN(size) (((size) + (ALIGNMENT - 1)) & ~(ALIGNMENT - 1))
-
+#define PTR_TO_BLOCK(ptr)((block_t *)(ptr)-1)
 #define BLOCK_SIZE  ALIGN(sizeof(block_t))
 #define FOOTER_SIZE ALIGN(sizeof(size_t))
 
@@ -181,6 +182,55 @@ void *my_malloc(size_t size) {
     }
 
     return (void *)(block + 1);
+}
+
+
+// -----------------------realloc------------------------
+
+
+void *my_realloc(void *ptr,size_t size){
+    //case 1:realloc(NULL,size)
+    if(ptr==NULL)
+        return my_malloc(size);
+
+    //Case 2 realloc(ptr,0)
+    if(size==0){
+        my_free(ptr);
+        return NULL;
+    }
+
+    size=ALIGN(size);
+    block_t *block=PTR_TO_BLOCK(ptr);
+
+    //Case 3:shrinking or same size 
+    if (block->meta.size >=size){
+        split_block(block , size);
+        write_footer(block);
+        return ptr;
+    }
+
+    //Case 4:try to grow in place 
+    block_t *next=block->meta.next;
+    if(next && next->meta.free &&
+            block->meta.size+BLOCK_SIZE+FOOTER_SIZE+next->meta.size >=size){
+
+        // merge with next 
+        block->meta.size+=BLOCK_SIZE+FOOTER_SIZE+next->meta.size;
+        block->meta.next=next->meta.next;
+
+        split_block(block ,size);
+        write_footer(block );
+        return ptr;
+    }
+    //Case 5 fallback 
+    void *new_ptr=my_malloc(size);
+    if(!new_ptr)
+        return NULL;
+    size_t copy_size=block->meta.size < size? block->meta.size :size;
+    memcpy(new_ptr,ptr,copy_size);
+    my_free(ptr);
+
+    return new_ptr;
 }
 
 /* =======================

@@ -86,6 +86,46 @@ int main(void)
 
     printf("Backward coalescing test passed\n");
 
+     
+    printf("Test 6: realloc behavior\n");
+
+    /* -------- realloc(NULL, size) -------- */
+    int *r1 = my_realloc(NULL, sizeof(int) * 4);
+    assert(r1 != NULL);
+    for (int i = 0; i < 4; i++)
+        r1[i] = i + 1;
+
+    /* -------- shrink realloc -------- */
+    int *r2 = my_realloc(r1, sizeof(int) * 2);
+    assert(r2 == r1);                 // must not move
+    assert(r2[0] == 1 && r2[1] == 2); // data preserved
+
+    /* -------- in-place grow realloc -------- */
+    // layout trick: ensure next block is free
+    void *pad = my_malloc(64);
+    my_free(pad);
+
+    int *r3 = my_realloc(r2, sizeof(int) * 6);
+    assert(r3 == r2);                 // must grow in place
+    assert(r3[0] == 1 && r3[1] == 2); // old data preserved
+
+    for (int i = 2; i < 6; i++)
+        r3[i] = i + 1;
+
+    /* -------- fallback realloc (forced move) -------- */
+    void *blocker = my_malloc(1024);  // block in-place expansion
+
+    int *r4 = my_realloc(r3, sizeof(int) * 20);
+    assert(r4 != NULL);
+
+    for (int i = 0; i < 6; i++)
+        assert(r4[i] == i + 1);       // data preserved after move
+
+    my_free(blocker);
+    my_free(r4);
+
+    printf("realloc tests passed\n");
+
     printf("ALL basic tests passed\n");
     return 0;
 }
